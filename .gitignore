@@ -4,5 +4,4 @@ __pycache__
 mysite
 myenv
 devserver.sh
-assistant.py
 .env
