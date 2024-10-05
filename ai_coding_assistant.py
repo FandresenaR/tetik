@@ -25,10 +25,10 @@ class AICodingAssistant:
         current_model = self.get_current_model()
         logger.info(f"Processing text input with model: {current_model}")
         try:
-            model_specific_prompt = f"You are {current_model}. First, state 'I am {current_model}.' Then, respond to the following prompt: {text}"
+            model_specific_prompt = f"You are {current_model}. Respond to the following prompt: {text}"
             response = self.client.chat_completion(model_specific_prompt)
             logger.debug(f"Raw response: {response}")
-            return response
+            return response.strip()
         except Exception as e:
             logger.exception("Error in process_text_input")
             return f"Error: {str(e)}"
@@ -43,10 +43,10 @@ class AICodingAssistant:
                 img.save(img_byte_arr, format='JPEG')
                 img_base64 = base64.b64encode(img_byte_arr.getvalue()).decode('utf-8')
 
-            prompt = f"You are {current_model}. First, state 'I am {current_model}.' Then, respond to the following: {user_question}\n[Image: data:image/jpeg;base64,{img_base64}]"
+            prompt = f"You are {current_model}. Respond to the following: {user_question}\n[Image: data:image/jpeg;base64,{img_base64}]"
             response = self.client.chat_completion(prompt)
             logger.debug(f"Raw response: {response}")
-            return response
+            return response.strip()
         except Exception as e:
             logger.exception("Error in process_image_input")
             return f"Error: {str(e)}"
@@ -61,10 +61,10 @@ class AICodingAssistant:
                 return "Error: Unable to read the video file."
             _, buffer = cv2.imencode('.jpg', frame)
             img_base64 = base64.b64encode(buffer).decode('utf-8')
-            prompt = f"You are {current_model}. First, state 'I am {current_model}.' Then, respond to the following: {user_question}\n[Image: data:image/jpeg;base64,{img_base64}]"
+            prompt = f"You are {current_model}. Respond to the following: {user_question}\n[Image: data:image/jpeg;base64,{img_base64}]"
             response = self.client.chat_completion(prompt)
             logger.debug(f"Raw response: {response}")
-            return response
+            return response.strip()
         except Exception as e:
             logger.exception("Error in process_video_input")
             return f"Error: {str(e)}"
