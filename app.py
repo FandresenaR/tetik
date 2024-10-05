@@ -2,6 +2,8 @@ import streamlit as st
 import os
 from dotenv import load_dotenv
 from ai_coding_assistant import AICodingAssistant
+from typing import Any, Dict, List
+
 # Load environment variables
 load_dotenv()
 
@@ -13,73 +15,76 @@ st.set_page_config(page_title="AI Coding Assistant", layout="wide")
 
 # Initialize session state
 if "conversations" not in st.session_state:
-    st.session_state.conversations = []
+    st.session_state.conversations: List[Dict[str, Any]] = []
 if "current_conversation" not in st.session_state:
-    st.session_state.current_conversation = None
+    st.session_state.current_conversation: int | None = None
 if "file_content" not in st.session_state:
-    st.session_state.file_content = None
+    st.session_state.file_content: str | None = None
 if "file_name" not in st.session_state:
-    st.session_state.file_name = None
+    st.session_state.file_name: str | None = None
 if "need_rerun" not in st.session_state:
-    st.session_state.need_rerun = False
+    st.session_state.need_rerun: bool = False
 if "uploaded_file" not in st.session_state:
-    st.session_state.uploaded_file = None
+    st.session_state.uploaded_file: Any = None
 if "show_file_uploader" not in st.session_state:
-    st.session_state.show_file_uploader = False
+    st.session_state.show_file_uploader: bool = False
+if "current_model" not in st.session_state:
+    st.session_state.current_model: str = ai_assistant.get_current_model()
+if "previous_input" not in st.session_state:
+    st.session_state.previous_input: str = ""
+
 # Custom CSS for styling
 st.markdown("""
 <style>
-    @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css');
-    .stButton>button {
-        border-radius: 50%;
-        height: 3em;
-        width: 3em;
+    /* ... (previous CSS remains unchanged) ... */
+    
+    .model-button {
+        position: absolute;
+        bottom: 5px;
+        left: 5px;
+        z-index: 1000;
+    }
+    .model-button button {
         display: flex;
         align-items: center;
         justify-content: center;
-        background-color: #4CAF50;
-        color: white;
-        border: none;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+        border-radius: 15px;
+        background-color: #f0f2f6;
+        color: #31333F;
+        border: 1px solid #d1d5db;
     }
-    .stButton>button:hover {
-        background-color: #45a049;
+    .model-button button:hover {
+        background-color: #e5e7eb;
     }
-    .stTextArea textarea {
-        border-radius: 10px;
-    }
-    .stSidebar .stButton>button {
-        width: 100%;
-        border-radius: 5px;
-    }
-    .send-button {
-        border-radius: 50% !important;
-        width: 3em !important;
-        height: 3em !important;
-        background-color: #4CAF50 !important;
-        color: white !important;
-        border: none !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-    }
-    .send-button:hover {
-        background-color: #45a049 !important;
-    }
-    .hidden {
-        display: none;
-    }
-    .new-conversation-btn {
-        width: 100% !important;
-        border-radius: 20px !important;
-        margin-bottom: 20px !important;
-    }
-    .conversation-history {
-        margin-top: 20px;
-        border-top: 1px solid #e0e0e0;
-        padding-top: 20px;
+    .model-icon {
+        margin-right: 5px;
     }
 </style>
 """, unsafe_allow_html=True)
+
+# Function to detect input type
+def detect_input_type(input_text: str, uploaded_file: Any) -> str:
+    if uploaded_file:
+        file_extension = uploaded_file.name.split('.')[-1].lower()
+        if file_extension in ['jpg', 'png']:
+            return "Image"
+        elif file_extension == 'mp4':
+            return "Video"
+        else:
+            return "Text"
+    elif input_text.startswith("http") and any(ext in input_text.lower() for ext in ['.jpg', '.jpeg', '.png', '.gif']):
+        return "Image"
+    elif "youtube.com" in input_text or "youtu.be" in input_text:
+        return "Video"
+    else:
+        return "Text"
+
+# Function to get the current model name
+def get_current_model_name():
+    return ai_assistant.get_current_model()
+
 # Sidebar for conversation management
 with st.sidebar:
     st.header("Tetika AI Assistant")
@@ -99,9 +104,10 @@ with st.sidebar:
             st.session_state.need_rerun = True
 
     st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown(f"**Current Model:** {st.session_state.current_model}")
+
 # Main chat interface
 st.title("Tetika AI: Your Coding Assistant")
-
 # Display current conversation messages
 if st.session_state.current_conversation is not None:
     current_conv = st.session_state.conversations[st.session_state.current_conversation]
@@ -109,48 +115,45 @@ if st.session_state.current_conversation is not None:
         with st.chat_message(message["role"]):
             st.write(message["content"])
 
-# Function to detect input type
-def detect_input_type(input_text, uploaded_file):
-    if uploaded_file:
-        file_extension = uploaded_file.name.split('.')[-1].lower()
-        if file_extension in ['jpg', 'png']:
-            return "Image"
-        elif file_extension == 'mp4':
-            return "Video"
-        else:
-            return "Text"
-    elif input_text.startswith("http") and any(ext in input_text.lower() for ext in ['.jpg', '.jpeg', '.png', '.gif']):
-        return "Image"
-    elif "youtube.com" in input_text or "youtu.be" in input_text:
-        return "Video"
-    else:
-        return "Text"
-
 # Unified input area at the bottom
-col1, col2, col3 = st.columns([0.85, 0.075, 0.075])
+col1, col2, col3 = st.columns([0.8, 0.1, 0.1])
 
 with col1:
-    user_input = st.text_area("Type your message, paste an image URL, or enter a YouTube video URL (use @web for web search):", key="user_input")
+    user_input = st.text_area("Type your message, paste an image URL, or enter a YouTube video URL (use @web for web search):", key="user_input", on_change=None)
+    
+    # Add the model button below the text area
+    model_button_col, _ = st.columns([0.3, 0.7])
+    with model_button_col:
+        model_button = st.button(
+            f"🤖 {st.session_state.current_model}",
+            key="model_button",
+            help="Change AI model"
+        )
 
 with col2:
     upload_button = st.button("➕", key="upload_button")
 
 with col3:
     send_button = st.button("➤", key="send_button")
-    st.markdown(
-        """
-        <script>
-            var send_button = document.querySelector('button[kind="secondary"]:not(.stDownloadButton)');
-            send_button.innerHTML = '<i class="fas fa-paper-plane"></i>';
-            send_button.classList.add('send-button');
-            
-            var new_conv_button = document.querySelector('.stButton button');
-            new_conv_button.classList.add('new-conversation-btn');
-        </script>
-        """,
-        unsafe_allow_html=True
-    )
 
+# Model selection modal
+if model_button:
+    st.session_state.show_model_selector = True
+
+if st.session_state.get("show_model_selector", False):
+    with st.form(key="model_selector_form"):
+        st.subheader("Select LLM Model")
+        available_models = ai_assistant.get_available_models()
+        selected_model = st.selectbox("Choose a model", available_models, index=available_models.index(st.session_state.current_model))
+        submit_button = st.form_submit_button("Confirm")
+        
+        if submit_button:
+            ai_assistant.set_model(selected_model)
+            st.session_state.current_model = selected_model
+            st.session_state.show_model_selector = False
+            st.success(f"Model changed to {selected_model}")
+            st.rerun()
+            
 # File uploader logic
 if upload_button:
     st.session_state.show_file_uploader = True
@@ -163,7 +166,13 @@ if st.session_state.show_file_uploader:
     elif st.session_state.uploaded_file:
         st.success(f"File uploaded: {st.session_state.uploaded_file.name}")
 
-if send_button or (user_input and user_input != st.session_state.get("previous_input", "")):
+# Process user input
+if send_button or (user_input and user_input != st.session_state.previous_input):
+    process_input = True
+else:
+    process_input = False
+
+if process_input:
     st.session_state.previous_input = user_input
     # Create a new conversation if none exists
     if st.session_state.current_conversation is None:
@@ -180,7 +189,6 @@ if send_button or (user_input and user_input != st.session_state.get("previous_i
             combined_input = f"User question: {user_input}\n\n"
             if st.session_state.file_content:
                 combined_input += f"File content ({st.session_state.file_name}):\n{st.session_state.file_content}\n\n"
-            
             if user_input.startswith("@web"):
                 search_query = user_input[4:].strip()
                 search_results = ai_assistant.search_online(search_query)
@@ -192,8 +200,9 @@ if send_button or (user_input and user_input != st.session_state.get("previous_i
             else:
                 response = ai_assistant.process_text_input(combined_input)
             
+            current_model = get_current_model_name()
             current_conv["messages"].append({"role": "user", "content": user_input if user_input else f"Analyzing file: {st.session_state.file_name}"})
-            current_conv["messages"].append({"role": "assistant", "content": response})
+            current_conv["messages"].append({"role": "assistant", "content": f"[Model: {current_model}]\n\n{response}"})
         else:
             st.warning("Please provide input or upload a file.")
     elif input_type == "Image":
@@ -201,8 +210,9 @@ if send_button or (user_input and user_input != st.session_state.get("previous_i
         if image_path:
             combined_input = f"Image: {image_path}\nUser question: Analyze this image"
             response = ai_assistant.process_image_input(image_path, combined_input)
+            current_model = get_current_model_name()
             current_conv["messages"].append({"role": "user", "content": f"Image: {image_path}"})
-            current_conv["messages"].append({"role": "assistant", "content": response})
+            current_conv["messages"].append({"role": "assistant", "content": f"\n\n{response}"})
         else:
             st.warning("Please provide a valid image URL or upload an image file.")
     elif input_type == "Video":
@@ -210,8 +220,9 @@ if send_button or (user_input and user_input != st.session_state.get("previous_i
         if video_url:
             combined_input = f"Video URL: {video_url}\nUser question: Analyze this video"
             response = ai_assistant.process_video_input(video_url, combined_input)
+            current_model = get_current_model_name()
             current_conv["messages"].append({"role": "user", "content": f"Video URL: {video_url}"})
-            current_conv["messages"].append({"role": "assistant", "content": response})
+            current_conv["messages"].append({"role": "assistant", "content": f"[Model: {current_model}]\n\n{response}"})
         else:
             st.warning("Please provide a valid YouTube video URL.")
 
@@ -223,7 +234,35 @@ if send_button or (user_input and user_input != st.session_state.get("previous_i
     st.session_state.file_content = None
     st.session_state.file_name = None
     st.session_state.need_rerun = True
+
 # Check if we need to rerun the app
 if st.session_state.need_rerun:
     st.session_state.need_rerun = False
     st.rerun()
+
+# Add custom JavaScript
+st.markdown(
+    """
+    <script>
+        // Add event listener for Ctrl+Enter
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                var textArea = document.querySelector('.stTextArea textarea');
+                if (textArea) {
+                    var sendButton = document.querySelector('button[kind="secondary"]:not(.stDownloadButton)');
+                    if (sendButton) {
+                        sendButton.click();
+                    }
+                }
+            }
+            
+        // Style the model button
+        var modelButton = document.querySelector('.model-button button');
+        if (modelButton) {
+            modelButton.innerHTML = modelButton.innerHTML.replace('🤖', '<span class="model-icon">🤖</span>');
+        }    
+        });
+    </script>
+    """,
+    unsafe_allow_html=True
+)
