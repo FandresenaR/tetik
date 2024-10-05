@@ -200,69 +200,9 @@ if process_input:
             else:
                 response = ai_assistant.process_text_input(combined_input)
             
-            current_model = get_current_model_name()
             current_conv["messages"].append({"role": "user", "content": user_input if user_input else f"Analyzing file: {st.session_state.file_name}"})
-            current_conv["messages"].append({"role": "assistant", "content": f"[Model: {current_model}]\n\n{response}"})
+            current_conv["messages"].append({"role": "assistant", "content": response})
         else:
             st.warning("Please provide input or upload a file.")
     elif input_type == "Image":
         image_path = user_input if user_input.startswith("http") else st.session_state.uploaded_file
-        if image_path:
-            combined_input = f"Image: {image_path}\nUser question: Analyze this image"
-            response = ai_assistant.process_image_input(image_path, combined_input)
-            current_model = get_current_model_name()
-            current_conv["messages"].append({"role": "user", "content": f"Image: {image_path}"})
-            current_conv["messages"].append({"role": "assistant", "content": f"\n\n{response}"})
-        else:
-            st.warning("Please provide a valid image URL or upload an image file.")
-    elif input_type == "Video":
-        video_url = user_input
-        if video_url:
-            combined_input = f"Video URL: {video_url}\nUser question: Analyze this video"
-            response = ai_assistant.process_video_input(video_url, combined_input)
-            current_model = get_current_model_name()
-            current_conv["messages"].append({"role": "user", "content": f"Video URL: {video_url}"})
-            current_conv["messages"].append({"role": "assistant", "content": f"[Model: {current_model}]\n\n{response}"})
-        else:
-            st.warning("Please provide a valid YouTube video URL.")
-
-    # Update conversation title if it's the first message
-    if len(current_conv["messages"]) == 2:  # First user message and AI response
-        current_conv["title"] = user_input[:30] + "..." if len(user_input) > 30 else user_input
-
-    # Clear the file content after processing
-    st.session_state.file_content = None
-    st.session_state.file_name = None
-    st.session_state.need_rerun = True
-
-# Check if we need to rerun the app
-if st.session_state.need_rerun:
-    st.session_state.need_rerun = False
-    st.rerun()
-
-# Add custom JavaScript
-st.markdown(
-    """
-    <script>
-        // Add event listener for Ctrl+Enter
-        document.addEventListener('keydown', function(e) {
-            if (e.ctrlKey && e.key === 'Enter') {
-                var textArea = document.querySelector('.stTextArea textarea');
-                if (textArea) {
-                    var sendButton = document.querySelector('button[kind="secondary"]:not(.stDownloadButton)');
-                    if (sendButton) {
-                        sendButton.click();
-                    }
-                }
-            }
-            
-        // Style the model button
-        var modelButton = document.querySelector('.model-button button');
-        if (modelButton) {
-            modelButton.innerHTML = modelButton.innerHTML.replace('🤖', '<span class="model-icon">🤖</span>');
-        }    
-        });
-    </script>
-    """,
-    unsafe_allow_html=True
-)
