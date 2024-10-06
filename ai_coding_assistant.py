@@ -21,19 +21,18 @@ class AICodingAssistant:
                 cls._instance.client = client
             logger.info(f"AICodingAssistant initialized with model: {cls._instance.get_current_model()}")
         return cls._instance
-    def process_text_input(self, text: str) -> str:
+    def process_text_input(self, text: str) -> dict:
         current_model = self.get_current_model()
         logger.info(f"Processing text input with model: {current_model}")
         try:
-            model_specific_prompt = f"You are {current_model}. Respond to the following prompt: {text}"
+            model_specific_prompt = f"Respond to the following prompt without introducing yourself or stating your model name: {text}"
             response = self.client.chat_completion(model_specific_prompt)
             logger.debug(f"Raw response: {response}")
-            return response.strip()
+            return {"model": current_model, "content": response.strip()}
         except Exception as e:
             logger.exception("Error in process_text_input")
-            return f"Error: {str(e)}"
-
-    def process_image_input(self, image_path: str, user_question: str = "") -> str:
+            return {"model": current_model, "content": f"Error: {str(e)}"}
+    def process_image_input(self, image_path: str, user_question: str = "") -> dict:
         current_model = self.get_current_model()
         logger.info(f"Processing image input with model: {current_model}")
         try:
@@ -43,14 +42,14 @@ class AICodingAssistant:
                 img.save(img_byte_arr, format='JPEG')
                 img_base64 = base64.b64encode(img_byte_arr.getvalue()).decode('utf-8')
 
-            prompt = f"You are {current_model}. Respond to the following: {user_question}\n[Image: data:image/jpeg;base64,{img_base64}]"
+            prompt = f"Respond to the following without introducing yourself or stating your model name: {user_question}\n[Image: data:image/jpeg;base64,{img_base64}]"
             response = self.client.chat_completion(prompt)
             logger.debug(f"Raw response: {response}")
-            return response.strip()
+            return {"model": current_model, "content": response.strip()}
         except Exception as e:
             logger.exception("Error in process_image_input")
-            return f"Error: {str(e)}"
-    def process_video_input(self, video_path: str, user_question: str = "") -> str:
+            return {"model": current_model, "content": f"Error: {str(e)}"}
+    def process_video_input(self, video_path: str, user_question: str = "") -> dict:
         current_model = self.get_current_model()
         logger.info(f"Processing video input with model: {current_model}")
         try:
@@ -58,16 +57,16 @@ class AICodingAssistant:
             success, frame = video.read()
             video.release()
             if not success:
-                return "Error: Unable to read the video file."
+                return {"model": current_model, "content": "Error: Unable to read the video file."}
             _, buffer = cv2.imencode('.jpg', frame)
             img_base64 = base64.b64encode(buffer).decode('utf-8')
-            prompt = f"You are {current_model}. Respond to the following: {user_question}\n[Image: data:image/jpeg;base64,{img_base64}]"
+            prompt = f"Respond to the following without introducing yourself or stating your model name: {user_question}\n[Image: data:image/jpeg;base64,{img_base64}]"
             response = self.client.chat_completion(prompt)
             logger.debug(f"Raw response: {response}")
-            return response.strip()
+            return {"model": current_model, "content": response.strip()}
         except Exception as e:
             logger.exception("Error in process_video_input")
-            return f"Error: {str(e)}"
+            return {"model": current_model, "content": f"Error: {str(e)}"}
     def search_online(self, query: str) -> list[dict]:
         url = f"https://api.duckduckgo.com/?q={query}&format=json"
         try:

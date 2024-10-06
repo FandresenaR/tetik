@@ -113,7 +113,11 @@ if st.session_state.current_conversation is not None:
     current_conv = st.session_state.conversations[st.session_state.current_conversation]
     for message in current_conv["messages"]:
         with st.chat_message(message["role"]):
-            st.write(message["content"])
+           if isinstance(message["content"], dict) and "model" in message["content"] and "content" in message["content"]:
+                st.write(f"[{message['content']['model']}]")
+                st.write(f"{message['content']['content']}")
+           else:
+               st.write(message["content"])
 
 # Unified input area at the bottom
 col1, col2, col3 = st.columns([0.8, 0.1, 0.1])

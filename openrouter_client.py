@@ -16,7 +16,6 @@ class OpenRouterClient:
             "openai/gpt-3.5-turbo",
             "meta-llama/llama-3.2-11b-vision-instruct:free",
             "google/palm-2-chat-bison",
-            "meta-llama/llama-2-70b-chat",
             "deepseek/deepseek-chat",
             "mistralai/mistral-7b-instruct:free",
             "liquid/lfm-40b:free",
