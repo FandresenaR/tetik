@@ -193,39 +193,35 @@ if process_input:
             combined_input = f"User question: {user_input}\n\n"
             if st.session_state.file_content:
                 combined_input += f"File content ({st.session_state.file_name}):\n{st.session_state.file_content}\n\n"
+
             if user_input.startswith("@web"):
                 search_query = user_input[4:].strip()
-                search_results = ai_assistant.search_online(search_query)
-                response = "Web search results:\n\n"
-                for result in search_results:
-                    response += f"**{result['title']}**\n{result['snippet']}\n[Link]({result['link']})\n\n"
-                response += f"\nBased on these search results, here's my analysis of your query '{search_query}':\n"
-                response += ai_assistant.process_text_input(combined_input + response)
+                try:
+                    search_results = ai_assistant.search_online(search_query)
+                    response = "Web search results:\n\n"
+                    for result in search_results:
+                        response += f"**{result['title']}**\n{result['snippet']}\n[Link]({result['link']})\n\n"
+                    response += f"\nBased on these search results, here's my analysis of your query '{search_query}':\n"
+                            
+                    ai_input = f"Web search query: {search_query}\n\nSearch results:\n{response}\n\nPlease analyze these results and provide insights."
+                            
+                    ai_response = ai_assistant.process_text_input(ai_input)
+                            
+                    if isinstance(ai_response, dict):
+                        if "content" in ai_response:
+                            response += ai_response["content"]
+                        else:
+                            response += str(ai_response)
+                    else:
+                        response += str(ai_response)
+                except Exception as e:
+                    st.error(f"An error occurred during web search: {str(e)}")
+                    response = f"I'm sorry, but I encountered an error while processing your web search request. Error details: {str(e)}"
             else:
                 response = ai_assistant.process_text_input(combined_input)
-            
+
             current_conv["messages"].append({"role": "user", "content": user_input if user_input else f"Analyzing file: {st.session_state.file_name}"})
             current_conv["messages"].append({"role": "assistant", "content": response})
-        else:
-            st.warning("Please provide input or upload a file.")
-    elif input_type == "Image":
-        image_path = user_input if user_input.startswith("http") else st.session_state.uploaded_file
-        if image_path:
-            combined_input = f"Image: {image_path}\nUser question: Analyze this image"
-            response = ai_assistant.process_image_input(image_path, combined_input)
-            current_conv["messages"].append({"role": "user", "content": f"Image: {image_path}"})
-            current_conv["messages"].append({"role": "assistant", "content": response})
-        else:
-            st.warning("Please provide a valid image URL or upload an image file.")
-    elif input_type == "Video":
-        video_url = user_input
-        if video_url:
-            combined_input = f"Video URL: {video_url}\nUser question: Analyze this video"
-            response = ai_assistant.process_video_input(video_url, combined_input)
-            current_conv["messages"].append({"role": "user", "content": f"Video URL: {video_url}"})
-            current_conv["messages"].append({"role": "assistant", "content": response})
-        else:
-            st.warning("Please provide a valid YouTube video URL.")
 
     # Update conversation title if it's the first message
     if len(current_conv["messages"]) == 2:  # First user message and AI response

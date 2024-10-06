@@ -3,6 +3,7 @@ import requests
 from dotenv import load_dotenv
 from typing import Dict, Any, List
 import logging
+from serpapi import GoogleSearch
 
 load_dotenv()
 logging.basicConfig(level=logging.DEBUG)
@@ -11,6 +12,7 @@ logger = logging.getLogger(__name__)
 class OpenRouterClient:
     def __init__(self):
         self.api_key: str = os.getenv("OPENROUTER_API_KEY", "")
+        self.serpapi_key = os.environ.get("SERPAPI_API_KEY")
         self.api_url: str = "https://openrouter.ai/api/v1/chat/completions"
         self.available_models: List[str] = [
             "openai/gpt-3.5-turbo",
@@ -83,3 +85,25 @@ class OpenRouterClient:
     def set_max_tokens(self, max_tokens: int) -> None:
         self.max_tokens = max_tokens
         logger.info(f"Max tokens set to: {self.max_tokens}")
+
+    def search_web(self, query):
+        params = {
+            "engine": "google",
+            "q": query,
+            "api_key": self.serpapi_key
+        }
+
+        search = GoogleSearch(params)
+        results = search.get_dict()
+
+        organic_results = results.get("organic_results", [])
+        formatted_results = []
+
+        for result in organic_results[:5]:  # Limit to top 5 results
+            formatted_results.append({
+                "title": result.get("title"),
+                "snippet": result.get("snippet"),
+                "link": result.get("link")
+            })
+
+        return formatted_results
