@@ -1,18 +1,26 @@
 import cv2
 import numpy as np
 import base64
-import io
+import requests
 from PIL import Image
-import logging
+import io
 from openrouter_client import OpenRouterClient
+import logging
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 class AICodingAssistant:
-    def __init__(self):
-        self.client = OpenRouterClient()
-        logger.info(f"AICodingAssistant initialized with model: {self.get_current_model()}")
+    _instance = None
+    def __new__(cls, client=None):
+        if cls._instance is None:
+            cls._instance = super(AICodingAssistant, cls).__new__(cls)
+            if client is None:
+                cls._instance.client = OpenRouterClient()
+            else:
+                cls._instance.client = client
+            logger.info(f"AICodingAssistant initialized with model: {cls._instance.get_current_model()}")
+        return cls._instance
     def process_text_input(self, text: str) -> dict:
         current_model = self.get_current_model()
         logger.info(f"Processing text input with model: {current_model}")
@@ -59,8 +67,28 @@ class AICodingAssistant:
         except Exception as e:
             logger.exception("Error in process_video_input")
             return {"model": current_model, "content": f"Error: {str(e)}"}
-    def search_online(self, query):
-        return self.client.search_web(query)
+    def search_online(self, query: str) -> list[dict]:
+        url = f"https://api.duckduckgo.com/?q={query}&format=json"
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            data = response.json()
+            results = []
+            for result in data.get('RelatedTopics', [])[:5]:
+                if 'Result' in result:
+                    title = result['Text'].split(' - ')[0]
+                    snippet = result['Text']
+                    link = result.get('FirstURL', '')
+                    results.append({
+                        "title": title,
+                        "snippet": snippet,
+                        "link": link
+                    })
+            return results
+        except Exception as e:
+            logger.exception("Error in search_online")
+            return [{"title": "Error", "snippet": str(e), "link": ""}]
+
     def set_model(self, model: str) -> None:
         logger.info(f"Setting model to: {model}")
         self.client.set_model(model)
