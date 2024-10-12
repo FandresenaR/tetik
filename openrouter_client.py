@@ -13,6 +13,7 @@ class OpenRouterClient:
     def __init__(self):
         self.api_key: str = os.getenv("OPENROUTER_API_KEY", "")
         self.serpapi_key = os.environ.get("SERPAPI_API_KEY")
+        logger.debug(f"SERP API key initialized: {'Yes' if self.serpapi_key else 'No'}")
         self.api_url: str = "https://openrouter.ai/api/v1/chat/completions"
         self.available_models: List[str] = [
             "openai/gpt-3.5-turbo",

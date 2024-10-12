@@ -1,8 +1,15 @@
 import streamlit as st
-import os
 from dotenv import load_dotenv
 from ai_coding_assistant import AICodingAssistant
 from typing import Any, Dict, List
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+# Debug flag
+DEBUG = True  # Set this to False when you don't want to see debug information
 
 # Load environment variables
 load_dotenv()
@@ -12,6 +19,7 @@ ai_assistant = AICodingAssistant()
 
 # Set page configuration
 st.set_page_config(page_title="AI Coding Assistant", layout="wide")
+#st.set_option('server.adress', 8501)
 
 # Initialize session state
 if "conversations" not in st.session_state:
@@ -196,11 +204,17 @@ if process_input:
             if user_input.startswith("@web"):
                 search_query = user_input[4:].strip()
                 search_results = ai_assistant.search_online(search_query)
+                if DEBUG:
+                    st.write(f"DEBUG: Calling search_online with query: {search_query}")
+                search_results = ai_assistant.search_online(search_query)
+                if DEBUG:
+                    st.write(f"DEBUG: Search results received: {search_results}")
                 response = "Web search results:\n\n"
                 for result in search_results:
                     response += f"**{result['title']}**\n{result['snippet']}\n[Link]({result['link']})\n\n"
-                response += f"\nBased on these search results, here's my analysis of your query '{search_query}':\n"
-                response += ai_assistant.process_text_input(combined_input + response)
+                    response += f"\nBased on these search results, here's my analysis of your query '{search_query}':\n"
+                    processed_response = ai_assistant.process_text_input(combined_input + response)
+                    response += processed_response['content']
             else:
                 response = ai_assistant.process_text_input(combined_input)
             

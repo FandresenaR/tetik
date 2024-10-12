@@ -1,11 +1,12 @@
 import cv2
 import numpy as np
 import base64
-import requests
 from PIL import Image
 import io
+import os
 from openrouter_client import OpenRouterClient
 import logging
+from serpapi import GoogleSearch
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -15,12 +16,19 @@ class AICodingAssistant:
     def __new__(cls, client=None):
         if cls._instance is None:
             cls._instance = super(AICodingAssistant, cls).__new__(cls)
+            cls._instance.client = client if client else OpenRouterClient()
+            logger.info(f"AICodingAssistant initialized with model: {cls._instance.get_current_model()}")
             if client is None:
                 cls._instance.client = OpenRouterClient()
             else:
                 cls._instance.client = client
             logger.info(f"AICodingAssistant initialized with model: {cls._instance.get_current_model()}")
         return cls._instance
+    
+    def __init__(self, client=None):
+        if not hasattr(self, 'client'):
+            self.client = client if client else OpenRouterClient()
+
     def process_text_input(self, text: str) -> dict:
         current_model = self.get_current_model()
         logger.info(f"Processing text input with model: {current_model}")
@@ -68,26 +76,52 @@ class AICodingAssistant:
             logger.exception("Error in process_video_input")
             return {"model": current_model, "content": f"Error: {str(e)}"}
     def search_online(self, query: str) -> list[dict]:
-        url = f"https://api.duckduckgo.com/?q={query}&format=json"
+        logger.info(f"Searching online for query: {query}")
         try:
-            response = requests.get(url)
-            response.raise_for_status()
-            data = response.json()
-            results = []
-            for result in data.get('RelatedTopics', [])[:5]:
-                if 'Result' in result:
-                    title = result['Text'].split(' - ')[0]
-                    snippet = result['Text']
-                    link = result.get('FirstURL', '')
-                    results.append({
-                        "title": title,
-                        "snippet": snippet,
-                        "link": link
-                    })
-            return results
+            # Get the API key from an environment variable or from the OpenRouterClient
+            api_key = os.getenv("SERPAPI_API_KEY") or getattr(self.client, 'serpapi_key', None)
+            logger.debug(f"API key retrieved: {'Yes' if api_key else 'No'}")
+
+            if not api_key:
+                raise ValueError("SERPAPI_API_KEY is not set")
+
+            params = {
+                "engine": "google",
+                "q": query,
+                "api_key": api_key
+            }
+            logger.debug(f"SERP API params: {params}")
+            
+            logger.info("Initiating GoogleSearch")
+            search = GoogleSearch(params)
+            
+            logger.info("Getting search results")
+            results = search.get_dict()
+            logger.debug(f"Raw SERP API results: {results}")
+            
+            if not results or 'error' in results:
+                logger.error(f"Error in SERP API response: {results.get('error', 'Unknown error')}")
+                return [{"title": "Error", "snippet": f"SERP API error: {results.get('error', 'Unknown error')}", "link": ""}]
+
+            formatted_results = []
+            organic_results = results.get("organic_results", [])
+            logger.info(f"Number of organic results: {len(organic_results)}")
+
+            for result in organic_results[:5]:  # Limit to top 5 results
+                formatted_results.append({
+                    "title": result.get("title", "No title"),
+                    "snippet": result.get("snippet", "No snippet"),
+                    "link": result.get("link", "No link")
+                })
+            
+            logger.info(f"Formatted {len(formatted_results)} search results")
+            return formatted_results
+        except ValueError as ve:
+            logger.error(f"ValueError in search_online: {ve}")
+            return [{"title": "Error", "snippet": str(ve), "link": ""}]
         except Exception as e:
-            logger.exception("Error in search_online")
-            return [{"title": "Error", "snippet": str(e), "link": ""}]
+            logger.exception("Unexpected error in search_online")
+            return [{"title": "Error", "snippet": f"An unexpected error occurred: {str(e)}", "link": ""}]
 
     def set_model(self, model: str) -> None:
         logger.info(f"Setting model to: {model}")
